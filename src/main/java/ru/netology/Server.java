@@ -9,8 +9,10 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Scanner;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,10 +20,12 @@ public class Server {
     private ExecutorService threadPoll;
     private final List<String> validPaths = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html",
             "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
+    private ConcurrentHashMap<String, Map<String, Handler>> map;
 
 
     public Server(int threads) {
         this.threadPoll = Executors.newFixedThreadPool(threads);
+        map = new ConcurrentHashMap<>();
     }
 
     public void start(int port) {
@@ -42,12 +46,22 @@ public class Server {
             while (true) {
 
                 final var requestLine = in.readLine();
+
                 final var parts = requestLine.split(" ");
 
                 if (parts.length != 3) {
                     return;
                 }
                 final var path = parts[1];
+
+                //собрали объект запроса
+                Request request = new Request(parts[0], parts[1]);
+
+                if (!request.getRequestMethod().equals("GET") || !request.getPath().equals(map.get("GET").get(request.getPath()))) {
+                    map.get("GET").get(request.getPath()).handle(request, out);
+                }
+
+
                 if (!validPaths.contains(path)) {
                     out.write((
                             "HTTP/1.1 404 Not Found\r\n" +
@@ -58,7 +72,15 @@ public class Server {
                     out.flush();
                     return;
                 }
+
+
                 final var filePath = Path.of(".", "public", path);
+
+
+                if (request.getRequestMethod().equals("GET") && request.getPath().equals("/classic.html")) {
+                    map.get("GET").get("/classic.html").handle(request, out);
+                }
+
                 final var mimeType = Files.probeContentType(filePath);
 
                 // special case for classic
@@ -95,5 +117,18 @@ public class Server {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void addHandler(String method, String path, Handler handler) {
+        if (map.containsKey(method)) {
+            map.get(method).put(path, handler);
+        } else {
+            map.put(method, new HashMap<>());
+            map.get(method).put(path, handler);
+        }
+    }
+
+    public void responseError(Request request, BufferedOutputStream out) {
+        System.out.println("Error 404");
     }
 }
