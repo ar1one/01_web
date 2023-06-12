@@ -22,7 +22,6 @@ public class Server {
             "/styles.css", "/app.js", "/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
     private ConcurrentHashMap<String, Map<String, Handler>> map;
 
-
     public Server(int threads) {
         this.threadPoll = Executors.newFixedThreadPool(threads);
         map = new ConcurrentHashMap<>();
@@ -61,7 +60,6 @@ public class Server {
                     map.get("GET").get(request.getPath()).handle(request, out);
                 }
 
-
                 if (!validPaths.contains(path)) {
                     out.write((
                             "HTTP/1.1 404 Not Found\r\n" +
@@ -73,9 +71,7 @@ public class Server {
                     return;
                 }
 
-
                 final var filePath = Path.of(".", "public", path);
-
 
                 if (request.getRequestMethod().equals("GET") && request.getPath().equals("/classic.html")) {
                     map.get("GET").get("/classic.html").handle(request, out);
